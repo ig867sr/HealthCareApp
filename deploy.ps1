@@ -17,9 +17,18 @@ if (-not $aws) {
     throw 'AWS CLI was not found. Install AWS CLI v2 and try again.'
 }
 
-$sitePath = Join-Path $PSScriptRoot 'website\index.html'
+$siteFiles = @(
+    @{
+        Path = Join-Path $PSScriptRoot 'website\index.html'
+        Key = 'index.html'
+    },
+    @{
+        Path = Join-Path $PSScriptRoot 'website\terms.html'
+        Key = 'terms.html'
+    }
+)
 $templatePath = Join-Path $PSScriptRoot 'infrastructure\template.yaml'
-foreach ($path in @($sitePath, $templatePath)) {
+foreach ($path in @($templatePath) + @($siteFiles | ForEach-Object Path)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Required deployment file not found: $path"
     }
@@ -58,18 +67,20 @@ if (-not $bucketName -or -not $distributionId -or -not $websiteUrl) {
     throw "CloudFormation stack '$StackName' did not return all expected outputs."
 }
 
-& aws s3 cp $sitePath "s3://$bucketName/index.html" `
-    --content-type 'text/html; charset=utf-8' `
-    --cache-control 'no-cache' `
-    --profile $Profile `
-    --region $Region
-if ($LASTEXITCODE -ne 0) {
-    throw "Could not upload the documentation page to bucket '$bucketName'."
+foreach ($siteFile in $siteFiles) {
+    & aws s3 cp $siteFile.Path "s3://$bucketName/$($siteFile.Key)" `
+        --content-type 'text/html; charset=utf-8' `
+        --cache-control 'no-cache' `
+        --profile $Profile `
+        --region $Region
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not upload '$($siteFile.Key)' to bucket '$bucketName'."
+    }
 }
 
 $invalidation = & aws cloudfront create-invalidation `
     --distribution-id $distributionId `
-    --paths '/' '/index.html' `
+    --paths '/' '/index.html' '/terms.html' `
     --profile $Profile `
     --output json
 if ($LASTEXITCODE -ne 0) {
