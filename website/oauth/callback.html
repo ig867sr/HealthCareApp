@@ -130,13 +130,30 @@
                         referrerPolicy: 'no-referrer'
                     });
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                        const errorBody = await response.text();
+                        let errorDetails = '';
+                        try {
+                            const outcome = JSON.parse(errorBody);
+                            if (outcome.resourceType === 'OperationOutcome' && Array.isArray(outcome.issue)) {
+                                errorDetails = outcome.issue
+                                    .map((issue) => issue.diagnostics || issue.details?.text || issue.code)
+                                    .filter(Boolean)
+                                    .join(' ');
+                            }
+                        } catch (error) {
+                            if (!(error instanceof SyntaxError)) {
+                                throw error;
+                            }
+                        }
+                        throw new Error(`HTTP ${response.status}${errorDetails ? `: ${errorDetails.slice(0, 400)}` : ''}`);
                     }
                     const bundle = await response.json();
                     if (bundle.resourceType !== 'Bundle' || !Array.isArray(bundle.entry)) {
                         throw new Error('Epic returned an unexpected search response.');
                     }
-                    resources.push(...bundle.entry.map((entry) => entry.resource).filter(Boolean));
+                    resources.push(...bundle.entry
+                        .map((entry) => entry.resource)
+                        .filter((resource) => resource?.resourceType === resourceType));
                     nextUrl = bundle.link?.find((link) => link.relation === 'next')?.url || '';
                     if (nextUrl && page === 9) {
                         truncated = true;
@@ -158,7 +175,7 @@
                 const reportStatus = document.getElementById('reports-status');
                 const observationList = document.getElementById('observations-list');
                 const observationStatus = document.getElementById('observations-status');
-                const reportParams = new URLSearchParams({ patient: patientId, _count: '100' });
+                const reportParams = new URLSearchParams({ subject: `Patient/${patientId}`, _count: '100' });
                 const observationParams = new URLSearchParams({
                     patient: patientId,
                     category: 'laboratory',
