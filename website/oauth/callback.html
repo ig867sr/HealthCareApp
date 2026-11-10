@@ -175,7 +175,11 @@
                 const reportStatus = document.getElementById('reports-status');
                 const observationList = document.getElementById('observations-list');
                 const observationStatus = document.getElementById('observations-status');
-                const reportParams = new URLSearchParams({ subject: `Patient/${patientId}`, _count: '100' });
+                const reportParams = new URLSearchParams({
+                    patient: patientId,
+                    category: 'http://terminology.hl7.org/CodeSystem/v2-0074|LAB',
+                    _count: '100'
+                });
                 const observationParams = new URLSearchParams({
                     patient: patientId,
                     category: 'laboratory',
