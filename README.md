@@ -32,8 +32,9 @@ through Stanford MyHealth and any required Epic or Stanford review.
 ## Epic FHIR R4 sandbox test
 
 The browser-based sandbox client uses SMART App Launch v2 authorization code
-flow with PKCE. It is configured with the nonproduction client ID only and uses
-Epic's public synthetic-data sandbox:
+flow with PKCE. It is configured with the MyHealthDataA nonproduction client ID
+only (`2e4afc0c-110a-44d0-85dd-0c85affcb4e2`) and uses Epic's public
+synthetic-data sandbox:
 
 ```text
 FHIR base:    https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
@@ -43,10 +44,12 @@ Test page:    https://d3ol4u5hnfhodl.cloudfront.net/oauth/index.html
 
 Register the callback URI exactly in the Epic **nonproduction** app. The test
 page redirects the user to Epic's sandbox authorization server; after consent,
-the callback exchanges the one-time authorization code using PKCE, then makes
-one authorized read of the synthetic Patient resource in the browser. OAuth
+the callback exchanges the one-time authorization code using PKCE, reads the
+synthetic Patient resource, then searches DiagnosticReport and laboratory
+Observation resources. Results are displayed only in the browser. OAuth
 tokens are held in memory only, never displayed, logged, or written to
-persistent browser storage. No client secret is used.
+persistent browser storage. No client secret is used. The nonproduction app
+must include Patient.Read, DiagnosticReport.Search, and Observation.Search.
 
 Do not use the production client ID or connect Stanford records with this
 sandbox page. Stanford production SMART endpoints, registration, and approval

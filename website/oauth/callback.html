@@ -21,6 +21,20 @@
         <h1>Epic sandbox authorization</h1>
         <p id="status" role="status" aria-live="polite">Completing the sandbox authorization…</p>
         <p id="details"></p>
+        <section id="results" hidden aria-labelledby="results-heading">
+            <h2 id="results-heading">Synthetic test results</h2>
+            <p>FHIR data shown here is synthetic Epic sandbox data and remains only in this page.</p>
+            <section aria-labelledby="reports-heading">
+                <h3 id="reports-heading">Diagnostic reports</h3>
+                <p id="reports-status"></p>
+                <ul id="reports-list"></ul>
+            </section>
+            <section aria-labelledby="observations-heading">
+                <h3 id="observations-heading">Laboratory observations</h3>
+                <p id="observations-status"></p>
+                <ul id="observations-list"></ul>
+            </section>
+        </section>
         <p><a href="/oauth/index.html">Return to sandbox test</a></p>
     </main>
     <script src="/oauth/config.js"></script>
@@ -31,6 +45,7 @@
             const config = window.EPIC_SANDBOX_CONFIG;
             const status = document.getElementById('status');
             const details = document.getElementById('details');
+            const results = document.getElementById('results');
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
             const returnedState = params.get('state');
@@ -42,6 +57,150 @@
 
             function fail(message) {
                 status.textContent = message;
+            }
+
+            function displayForCodeableConcept(concept) {
+                if (!concept) {
+                    return '';
+                }
+                return concept.text || concept.coding?.find((coding) => coding.display)?.display || '';
+            }
+
+            function displayForObservationValue(observation) {
+                const quantity = observation.valueQuantity;
+                if (quantity) {
+                    return [quantity.value, quantity.unit || quantity.code].filter(Boolean).join(' ');
+                }
+                const concept = displayForCodeableConcept(observation.valueCodeableConcept);
+                if (concept) {
+                    return concept;
+                }
+                for (const key of ['valueString', 'valueInteger', 'valueDecimal', 'valueBoolean', 'valueDateTime', 'valueDate', 'valueTime']) {
+                    if (observation[key] !== undefined) {
+                        return String(observation[key]);
+                    }
+                }
+                const range = observation.valueRange;
+                if (range) {
+                    const low = range.low ? `${range.low.value ?? ''} ${range.low.unit || ''}`.trim() : '';
+                    const high = range.high ? `${range.high.value ?? ''} ${range.high.unit || ''}`.trim() : '';
+                    return [low, high].filter(Boolean).join(' – ');
+                }
+                return 'No simple value';
+            }
+
+            function appendListItem(list, title, metadata) {
+                const item = document.createElement('li');
+                const heading = document.createElement('strong');
+                heading.textContent = title || 'Unnamed result';
+                item.appendChild(heading);
+                if (metadata) {
+                    item.appendChild(document.createTextNode(` — ${metadata}`));
+                }
+                list.appendChild(item);
+            }
+
+            function resultDate(resource) {
+                const period = resource.effectivePeriod || resource.performedPeriod;
+                return resource.effectiveDateTime || resource.issued || resource.date || period?.start || '';
+            }
+
+            async function fetchSearchResults(resourceType, searchParams, accessToken) {
+                const base = new URL(config.fhirBaseUrl);
+                const url = new URL(`${resourceType}`, `${base.href.replace(/\/?$/, '/')}`);
+                url.search = searchParams.toString();
+                const resources = [];
+                const visited = new Set();
+                let nextUrl = url.href;
+                let truncated = false;
+
+                for (let page = 0; nextUrl && page < 10; page += 1) {
+                    const current = new URL(nextUrl);
+                    if (current.origin !== base.origin || !current.pathname.startsWith(`${base.pathname}/`) || visited.has(current.href)) {
+                        throw new Error('Epic returned an invalid or repeated pagination link.');
+                    }
+                    visited.add(current.href);
+                    const response = await fetch(current.href, {
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                            Accept: 'application/fhir+json'
+                        },
+                        cache: 'no-store',
+                        credentials: 'omit',
+                        referrerPolicy: 'no-referrer'
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const bundle = await response.json();
+                    if (bundle.resourceType !== 'Bundle' || !Array.isArray(bundle.entry)) {
+                        throw new Error('Epic returned an unexpected search response.');
+                    }
+                    resources.push(...bundle.entry.map((entry) => entry.resource).filter(Boolean));
+                    nextUrl = bundle.link?.find((link) => link.relation === 'next')?.url || '';
+                    if (nextUrl && page === 9) {
+                        truncated = true;
+                    }
+                }
+                return { resources, truncated };
+            }
+
+            function showSearchError(label, target, error) {
+                const requirement = error.message === 'HTTP 403'
+                    ? ` Confirm ${label} is enabled for the MyHealthDataA nonproduction app.`
+                    : '';
+                target.textContent = `Could not load ${label}: ${error.message}.${requirement}`;
+            }
+
+            async function showTestResults(patientId, accessToken) {
+                results.hidden = false;
+                const reportList = document.getElementById('reports-list');
+                const reportStatus = document.getElementById('reports-status');
+                const observationList = document.getElementById('observations-list');
+                const observationStatus = document.getElementById('observations-status');
+                const reportParams = new URLSearchParams({ patient: patientId, _count: '100' });
+                const observationParams = new URLSearchParams({
+                    patient: patientId,
+                    category: 'laboratory',
+                    _count: '100'
+                });
+
+                const [reports, observations] = await Promise.allSettled([
+                    fetchSearchResults('DiagnosticReport', reportParams, accessToken),
+                    fetchSearchResults('Observation', observationParams, accessToken)
+                ]);
+
+                if (reports.status === 'fulfilled') {
+                    const items = reports.value.resources;
+                    reportStatus.textContent = `${items.length} diagnostic report(s) found${reports.value.truncated ? '; additional pages not shown' : ''}.`;
+                    for (const report of items) {
+                        const name = displayForCodeableConcept(report.code) || report.resourceType;
+                        const metadata = [report.status, resultDate(report), report.conclusion].filter(Boolean).join(' · ');
+                        appendListItem(reportList, name, metadata);
+                    }
+                    if (!items.length) {
+                        appendListItem(reportList, 'No diagnostic reports returned', '');
+                    }
+                } else {
+                    showSearchError('DiagnosticReport.Search', reportStatus, reports.reason);
+                }
+
+                if (observations.status === 'fulfilled') {
+                    const items = observations.value.resources;
+                    observationStatus.textContent = `${items.length} laboratory observation(s) found${observations.value.truncated ? '; additional pages not shown' : ''}.`;
+                    for (const observation of items) {
+                        const name = displayForCodeableConcept(observation.code) || observation.resourceType;
+                        const metadata = [displayForObservationValue(observation), observation.status, resultDate(observation)].filter(Boolean).join(' · ');
+                        appendListItem(observationList, name, metadata);
+                    }
+                    if (!items.length) {
+                        appendListItem(observationList, 'No laboratory observations returned', '');
+                    }
+                } else {
+                    showSearchError('Observation.Search', observationStatus, observations.reason);
+                }
+
+                return reports.status === 'fulfilled' && observations.status === 'fulfilled';
             }
 
             async function completeAuthorization() {
@@ -109,8 +268,12 @@
                         throw new Error('Epic returned an unexpected resource type.');
                     }
 
-                    status.textContent = 'End-to-end sandbox test succeeded: SMART authorization completed and an authorized R4 Patient resource was read.';
-                    details.textContent = 'The patient record is synthetic sandbox data. The access token was kept in memory only and was not displayed or saved.';
+                    status.textContent = 'Patient authorization succeeded. Searching for synthetic test results…';
+                    const searchesSucceeded = await showTestResults(token.patient, token.access_token);
+                    status.textContent = searchesSucceeded
+                        ? 'End-to-end sandbox test succeeded: authorization, Patient read, and test-result searches completed.'
+                        : 'Patient authorization succeeded, but one or more test-result searches failed. See details below.';
+                    details.textContent = 'The records are synthetic sandbox data. The access token was kept in memory only and was not displayed or saved.';
                 } catch (error) {
                     fail(error.message);
                 }

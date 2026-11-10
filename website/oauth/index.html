@@ -27,7 +27,7 @@
         <div class="notice">
             <strong>Sandbox only:</strong> This connects to Epic's developer sandbox and uses synthetic test records. It does not access Stanford Health Care production records.
         </div>
-        <p>Continue to Epic's sandbox sign-in and authorize this app. Enter your sandbox credentials only on Epic's site. After authorization, this page reads the synthetic Patient resource in your browser and does not save it.</p>
+        <p>Continue to Epic's sandbox sign-in and authorize this app. Enter your sandbox credentials only on Epic's site. After authorization, this page reads the synthetic Patient resource, then searches for Camila's diagnostic reports and laboratory observations. It does not save the token or records.</p>
         <button id="connect" type="button">Connect to Epic sandbox</button>
         <p id="status" role="status" aria-live="polite"></p>
         <p class="muted">Uses the registered nonproduction public client and SMART App Launch v2 with PKCE. No client secret is used.</p>
