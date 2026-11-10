@@ -25,6 +25,18 @@ $siteFiles = @(
     @{
         Path = Join-Path $PSScriptRoot 'website\terms.html'
         Key = 'terms.html'
+    },
+    @{
+        Path = Join-Path $PSScriptRoot 'website\oauth\index.html'
+        Key = 'oauth/index.html'
+    },
+    @{
+        Path = Join-Path $PSScriptRoot 'website\oauth\callback.html'
+        Key = 'oauth/callback.html'
+    },
+    @{
+        Path = Join-Path $PSScriptRoot 'website\oauth\config.js'
+        Key = 'oauth/config.js'
     }
 )
 $templatePath = Join-Path $PSScriptRoot 'infrastructure\template.yaml'
@@ -68,8 +80,14 @@ if (-not $bucketName -or -not $distributionId -or -not $websiteUrl) {
 }
 
 foreach ($siteFile in $siteFiles) {
+    $contentType = switch ([IO.Path]::GetExtension($siteFile.Path).ToLowerInvariant()) {
+        '.html' { 'text/html; charset=utf-8' }
+        '.js' { 'application/javascript; charset=utf-8' }
+        default { throw "Unsupported deployment file type: $($siteFile.Path)" }
+    }
+
     & aws s3 cp $siteFile.Path "s3://$bucketName/$($siteFile.Key)" `
-        --content-type 'text/html; charset=utf-8' `
+        --content-type $contentType `
         --cache-control 'no-cache' `
         --profile $Profile `
         --region $Region
@@ -80,7 +98,7 @@ foreach ($siteFile in $siteFiles) {
 
 $invalidation = & aws cloudfront create-invalidation `
     --distribution-id $distributionId `
-    --paths '/' '/index.html' '/terms.html' `
+    --paths '/' '/index.html' '/terms.html' '/oauth/*' `
     --profile $Profile `
     --output json
 if ($LASTEXITCODE -ne 0) {

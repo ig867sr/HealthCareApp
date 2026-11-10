@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Epic Sandbox Authorization | Personal Health Record Assistant</title>
+    <style>
+        :root { color-scheme: light; --navy: #123b56; --paper: #f4f7f8; --ink: #1d2c35; --border: #d8e1e5; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 Arial, Helvetica, sans-serif; }
+        main { width: min(100% - 2rem, 700px); margin: 3rem auto; padding: clamp(1.25rem, 5vw, 2.5rem); border: 1px solid var(--border); border-radius: 0.75rem; background: #fff; }
+        h1 { color: var(--navy); line-height: 1.2; }
+        a { color: #075d7c; }
+        #status { overflow-wrap: anywhere; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Epic sandbox authorization</h1>
+        <p id="status" role="status" aria-live="polite">Completing the sandbox authorization…</p>
+        <p id="details"></p>
+        <p><a href="/oauth/index.html">Return to sandbox test</a></p>
+    </main>
+    <script src="/oauth/config.js"></script>
+    <script>
+        (() => {
+            'use strict';
+
+            const config = window.EPIC_SANDBOX_CONFIG;
+            const status = document.getElementById('status');
+            const details = document.getElementById('details');
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const returnedState = params.get('state');
+            const oauthError = params.get('error');
+            const oauthDescription = params.get('error_description');
+            const storagePrefix = 'epicSandbox.';
+
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            function fail(message) {
+                status.textContent = message;
+            }
+
+            async function completeAuthorization() {
+                if (oauthError) {
+                    sessionStorage.removeItem(`${storagePrefix}verifier`);
+                    sessionStorage.removeItem(`${storagePrefix}state`);
+                    fail(`Authorization was not completed: ${oauthDescription || oauthError}`);
+                    return;
+                }
+
+                const expectedState = sessionStorage.getItem(`${storagePrefix}state`);
+                const verifier = sessionStorage.getItem(`${storagePrefix}verifier`);
+                sessionStorage.removeItem(`${storagePrefix}state`);
+                sessionStorage.removeItem(`${storagePrefix}verifier`);
+
+                if (!code || !returnedState || !expectedState || returnedState !== expectedState || !verifier) {
+                    fail('The authorization response could not be verified. Return to the sandbox test and try again.');
+                    return;
+                }
+
+                status.textContent = 'Exchanging the one-time authorization code with Epic…';
+                try {
+                    const body = new URLSearchParams({
+                        grant_type: 'authorization_code',
+                        code,
+                        redirect_uri: config.redirectUri,
+                        client_id: config.clientId,
+                        code_verifier: verifier
+                    });
+                    const response = await fetch(config.tokenUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body,
+                        cache: 'no-store',
+                        credentials: 'omit',
+                        referrerPolicy: 'no-referrer'
+                    });
+                    if (!response.ok) {
+                        throw new Error(`Epic token exchange failed (HTTP ${response.status}). Verify that this exact callback URL is registered for the nonproduction client.`);
+                    }
+
+                    const token = await response.json();
+                    if (!token.access_token) {
+                        throw new Error('Epic did not return an access token.');
+                    }
+                    if (!token.patient) {
+                        throw new Error('Authorization succeeded, but Epic did not return a patient context. Confirm patient-facing standalone launch and the launch/patient scope in Epic registration.');
+                    }
+
+                    const patientResponse = await fetch(`${config.fhirBaseUrl}/Patient/${encodeURIComponent(token.patient)}`, {
+                        headers: {
+                            Authorization: `Bearer ${token.access_token}`,
+                            Accept: 'application/fhir+json'
+                        },
+                        cache: 'no-store',
+                        credentials: 'omit',
+                        referrerPolicy: 'no-referrer'
+                    });
+                    if (!patientResponse.ok) {
+                        throw new Error(`Authorization succeeded, but the sandbox Patient read failed (HTTP ${patientResponse.status}).`);
+                    }
+
+                    const patient = await patientResponse.json();
+                    if (patient.resourceType !== 'Patient') {
+                        throw new Error('Epic returned an unexpected resource type.');
+                    }
+
+                    status.textContent = 'End-to-end sandbox test succeeded: SMART authorization completed and an authorized R4 Patient resource was read.';
+                    details.textContent = 'The patient record is synthetic sandbox data. The access token was kept in memory only and was not displayed or saved.';
+                } catch (error) {
+                    fail(error.message);
+                }
+            }
+
+            completeAuthorization().catch((error) => {
+                fail(`Sandbox test failed: ${error.message}`);
+            });
+        })();
+    </script>
+</body>
+</html>

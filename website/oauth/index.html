@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Epic FHIR Sandbox Test | Personal Health Record Assistant</title>
+    <style>
+        :root { color-scheme: light; --navy: #123b56; --blue: #176b87; --paper: #f4f7f8; --ink: #1d2c35; --muted: #4a5b65; --border: #d8e1e5; }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 Arial, Helvetica, sans-serif; }
+        main { width: min(100% - 2rem, 700px); margin: 3rem auto; padding: clamp(1.25rem, 5vw, 2.5rem); border: 1px solid var(--border); border-radius: 0.75rem; background: #fff; }
+        h1 { margin-top: 0; color: var(--navy); line-height: 1.2; }
+        button { width: 100%; margin-top: 1rem; padding: 0.8rem; border: 0; border-radius: 0.4rem; background: var(--navy); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+        button:focus-visible, a:focus-visible { outline: 3px solid #e29b16; outline-offset: 3px; }
+        .notice { margin: 1rem 0; padding: 0.9rem 1rem; border-left: 4px solid var(--blue); background: #e7f3f5; }
+        .muted { color: var(--muted); font-size: 0.92rem; }
+        #status { margin-top: 1rem; }
+        a { color: #075d7c; }
+    </style>
+</head>
+<body>
+    <main>
+        <p><a href="/">Personal Health Record Assistant</a></p>
+        <h1>Epic FHIR R4 sandbox test</h1>
+        <div class="notice">
+            <strong>Sandbox only:</strong> This connects to Epic's developer sandbox and uses synthetic test records. It does not access Stanford Health Care production records.
+        </div>
+        <p>Continue to Epic's sandbox sign-in and authorize this app. Enter your sandbox credentials only on Epic's site. After authorization, this page reads the synthetic Patient resource in your browser and does not save it.</p>
+        <button id="connect" type="button">Connect to Epic sandbox</button>
+        <p id="status" role="status" aria-live="polite"></p>
+        <p class="muted">Uses the registered nonproduction public client and SMART App Launch v2 with PKCE. No client secret is used.</p>
+        <p><a href="/terms.html">Terms and conditions</a></p>
+    </main>
+    <script src="/oauth/config.js"></script>
+    <script>
+        (() => {
+            'use strict';
+
+            const config = window.EPIC_SANDBOX_CONFIG;
+            const status = document.getElementById('status');
+            const connect = document.getElementById('connect');
+            const storagePrefix = 'epicSandbox.';
+
+            function base64Url(bytes) {
+                let binary = '';
+                bytes.forEach((value) => { binary += String.fromCharCode(value); });
+                return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+            }
+
+            async function startAuthorization() {
+                if (!window.isSecureContext || !window.crypto?.subtle) {
+                    throw new Error('Secure browser cryptography is unavailable. Open this page using its HTTPS CloudFront URL.');
+                }
+
+                const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+                const state = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+                const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+                const challenge = base64Url(new Uint8Array(digest));
+
+                sessionStorage.setItem(`${storagePrefix}verifier`, verifier);
+                sessionStorage.setItem(`${storagePrefix}state`, state);
+
+                const authorize = new URL(config.authorizationUrl);
+                authorize.search = new URLSearchParams({
+                    response_type: 'code',
+                    client_id: config.clientId,
+                    redirect_uri: config.redirectUri,
+                    scope: 'launch/patient patient/*.read openid fhirUser',
+                    state,
+                    aud: config.fhirBaseUrl,
+                    code_challenge: challenge,
+                    code_challenge_method: 'S256'
+                });
+                window.location.assign(authorize.href);
+            }
+
+            connect.addEventListener('click', () => {
+                connect.disabled = true;
+                status.textContent = 'Redirecting to Epic sandbox…';
+                startAuthorization().catch((error) => {
+                    sessionStorage.removeItem(`${storagePrefix}verifier`);
+                    sessionStorage.removeItem(`${storagePrefix}state`);
+                    status.textContent = error.message;
+                    connect.disabled = false;
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

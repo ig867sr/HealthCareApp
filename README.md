@@ -29,6 +29,29 @@ through Stanford MyHealth and any required Epic or Stanford review.
 - The app is for personal information access and education, not emergency use
   or medical decision-making.
 
+## Epic FHIR R4 sandbox test
+
+The browser-based sandbox client uses SMART App Launch v2 authorization code
+flow with PKCE. It is configured with the nonproduction client ID only and uses
+Epic's public synthetic-data sandbox:
+
+```text
+FHIR base:    https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4
+Callback URI: https://d3ol4u5hnfhodl.cloudfront.net/oauth/callback.html
+Test page:    https://d3ol4u5hnfhodl.cloudfront.net/oauth/index.html
+```
+
+Register the callback URI exactly in the Epic **nonproduction** app. The test
+page redirects the user to Epic's sandbox authorization server; after consent,
+the callback exchanges the one-time authorization code using PKCE, then makes
+one authorized read of the synthetic Patient resource in the browser. OAuth
+tokens are held in memory only, never displayed, logged, or written to
+persistent browser storage. No client secret is used.
+
+Do not use the production client ID or connect Stanford records with this
+sandbox page. Stanford production SMART endpoints, registration, and approval
+must be confirmed separately before any real patient data is accessed.
+
 ## Deploy the documentation site
 
 Requirements: AWS CLI v2 and an authenticated AWS SSO profile. The site uses
