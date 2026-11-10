@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Public documentation and privacy information for the Personal Health Record Assistant development project.">
+    <meta name="theme-color" content="#123b56">
+    <title>Personal Health Record Assistant | Project Information</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --navy: #123b56;
+            --blue: #176b87;
+            --teal: #dff3f1;
+            --paper: #f4f7f8;
+            --ink: #1d2c35;
+            --muted: #4a5b65;
+            --white: #fff;
+            --border: #d8e1e5;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--paper);
+            color: var(--ink);
+            font: 16px/1.65 Arial, Helvetica, sans-serif;
+        }
+
+        header {
+            padding: 2rem 1.25rem;
+            background: var(--navy);
+            color: var(--white);
+        }
+
+        .header-inner, main, footer {
+            width: min(100% - 2rem, 860px);
+            margin: 0 auto;
+        }
+
+        .eyebrow {
+            margin: 0 0 0.4rem;
+            color: #b9e5e8;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1, h2 { line-height: 1.2; }
+
+        h1 {
+            max-width: 700px;
+            margin: 0;
+            font-size: clamp(2rem, 5vw, 3rem);
+        }
+
+        header p:last-child {
+            max-width: 680px;
+            margin: 0.8rem 0 0;
+            color: #e4eef2;
+        }
+
+        main { padding: 2rem 0 3rem; }
+
+        .notice {
+            margin-bottom: 1.25rem;
+            padding: 1rem 1.2rem;
+            border: 1px solid #b7d8d5;
+            border-left: 5px solid var(--blue);
+            border-radius: 0.5rem;
+            background: var(--teal);
+        }
+
+        .notice p { margin: 0; }
+
+        section {
+            margin-top: 1rem;
+            padding: 1.4rem clamp(1rem, 4vw, 2rem);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--white);
+        }
+
+        h2 {
+            margin: 0 0 0.75rem;
+            color: var(--navy);
+            font-size: 1.35rem;
+        }
+
+        p { margin: 0.5rem 0 0; }
+
+        ul { margin: 0.5rem 0 0; padding-left: 1.3rem; }
+
+        li + li { margin-top: 0.45rem; }
+
+        a { color: #075d7c; }
+        a:focus-visible { outline: 3px solid #e29b16; outline-offset: 3px; }
+
+        footer {
+            padding: 0 0 2rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <p class="eyebrow">Project information</p>
+            <h1>Personal Health Record Assistant</h1>
+            <p>A development-stage project exploring patient-controlled access to health information through standards-based APIs.</p>
+        </div>
+    </header>
+
+    <main>
+        <div class="notice" role="note">
+            <p><strong>Development status:</strong> This project is not connected to Stanford Health Care production records. Initial development and testing use synthetic data in the Epic FHIR sandbox.</p>
+        </div>
+
+        <section aria-labelledby="purpose">
+            <h2 id="purpose">Purpose</h2>
+            <p>The project is intended to help an individual organize and understand health information they choose to access from their healthcare provider. If a production connection is pursued, the user will initiate access through the provider's patient sign-in and authorization flow. The project will not ask for or collect a MyHealth password.</p>
+        </section>
+
+        <section aria-labelledby="data">
+            <h2 id="data">Health information and privacy</h2>
+            <ul>
+                <li>This public website contains project information only; it does not collect or display patient records.</li>
+                <li>Development testing uses synthetic Epic sandbox data, not real patient information.</li>
+                <li>No real health information should be submitted to this prototype. Production access will not be enabled until data handling, security, retention, and any use of AI services are disclosed and reviewed.</li>
+                <li>Any future access to real records is intended to be limited to data the user explicitly authorizes through the healthcare provider.</li>
+            </ul>
+        </section>
+
+        <section aria-labelledby="limits">
+            <h2 id="limits">Important limitations</h2>
+            <p>This project is for personal information access and educational purposes. It is not a medical device or clinical service, does not diagnose or recommend treatment, and is not for emergencies. Contact a healthcare professional for medical questions and emergency services for urgent situations.</p>
+        </section>
+
+        <section aria-labelledby="access">
+            <h2 id="access">Provider access</h2>
+            <p>Stanford Health Care patients use Stanford MyHealth to authorize compatible applications to access supported information through FHIR. App availability and the data returned are controlled by the healthcare provider and the patient's authorization. See the <a href="https://stanfordhealthcare.org/for-patients-visitors/myhealth/faqs.html#fhir">Stanford MyHealth FAQ about sharing health data with apps</a>.</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>Last updated November 2026. Project status and data practices will be updated before any production health-data integration is enabled.</p>
+    </footer>
+</body>
+</html>
